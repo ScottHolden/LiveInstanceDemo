@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.4.1008.15138",
-      "templateHash": "12780463575189430236"
+      "templateHash": "6008653386012212950"
     }
   },
   "parameters": {
@@ -136,7 +136,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.4.1008.15138",
-              "templateHash": "2735392724949742999"
+              "templateHash": "13832564242979468105"
             }
           },
           "parameters": {
@@ -218,6 +218,19 @@
                     "properties": {}
                   }
                 ],
+                "probes": [
+                  {
+                    "name": "http",
+                    "properties": {
+                      "protocol": "Http",
+                      "interval": 2,
+                      "timeout": 2,
+                      "unhealthyThreshold": 2,
+                      "path": "/",
+                      "pickHostNameFromBackendHttpSettings": true
+                    }
+                  }
+                ],
                 "backendHttpSettingsCollection": [
                   {
                     "name": "dotnet",
@@ -226,7 +239,10 @@
                       "protocol": "Http",
                       "cookieBasedAffinity": "Disabled",
                       "pickHostNameFromBackendAddress": true,
-                      "requestTimeout": 5
+                      "requestTimeout": 5,
+                      "probe": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/probes', variables('appGwName'), 'http')]"
+                      }
                     }
                   }
                 ],
@@ -479,7 +495,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.4.1008.15138",
-              "templateHash": "1824820542383353065"
+              "templateHash": "1914047986822732288"
             }
           },
           "parameters": {
@@ -574,13 +590,15 @@
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2020-04-01-preview",
               "scope": "[format('Microsoft.Compute/virtualMachineScaleSets/{0}', parameters('vmssName'))]",
-              "name": "[guid(parameters('vmssName'), parameters('uniqueName'))]",
+              "name": "[guid(extensionResourceId(resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmssName')), 'Microsoft.Chaos/targets', 'microsoft-virtualmachinescaleset'), resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName'))))]",
               "properties": {
                 "principalId": "[reference(resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName'))), '2021-09-15-preview', 'full').identity.principalId]",
-                "roleDefinitionId": "[variables('vmContributorRole')]"
+                "roleDefinitionId": "[variables('vmContributorRole')]",
+                "principalType": "ServicePrincipal"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName')))]"
+                "[resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName')))]",
+                "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmssName')), 'Microsoft.Chaos/targets', 'microsoft-virtualmachinescaleset')]"
               ]
             }
           ]

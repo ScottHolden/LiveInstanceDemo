@@ -65,6 +65,19 @@ resource AppGw 'Microsoft.Network/applicationGateways@2021-03-01' = {
         }
       }
     ]
+    probes: [
+      {
+        name: 'http'
+        properties:{
+          protocol: 'Http'
+          interval: 2
+          timeout: 2
+          unhealthyThreshold: 2
+          path: '/'
+          pickHostNameFromBackendHttpSettings: true
+        }
+      }
+    ]
     backendHttpSettingsCollection: [
       {
         name: 'dotnet'
@@ -74,6 +87,9 @@ resource AppGw 'Microsoft.Network/applicationGateways@2021-03-01' = {
           cookieBasedAffinity: 'Disabled'
           pickHostNameFromBackendAddress: true
           requestTimeout: 5
+          probe: {
+            id: resourceId('Microsoft.Network/applicationGateways/probes', appGwName, 'http')
+          }
         }
       }
     ]

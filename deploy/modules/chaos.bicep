@@ -76,10 +76,11 @@ resource ShutdownExperiment 'Microsoft.Chaos/experiments@2021-09-15-preview' = {
 
 // Setup permissions for experiment
 resource VMSSRoleAssign 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-  name: guid(vmssName, uniqueName)
+  name: guid(Target.id, ShutdownExperiment.id)
   scope: VMSS
   properties: {
     principalId: ShutdownExperiment.identity.principalId
     roleDefinitionId: vmContributorRole
+    principalType: 'ServicePrincipal'
   }
 }
