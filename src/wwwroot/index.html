@@ -56,11 +56,11 @@
             graph.data.labels[id] = x;
             graph.update();
         }
-        const run = () => fetch('/id')
+        const run = () => fetch('/id?t=' + Date.now())
             .then(x => x.ok ? x.text() : Promise.reject(x.status))
             .then(x => { log(x); update(x); })
             .catch(logError);
-        const interval = Math.max(50, parseInt(new URLSearchParams(window.location.search).get('s') ?? 250));
+        const interval = Math.max(50, parseInt(new URLSearchParams(window.location.search).get('s') ?? 200));
         setInterval(run, interval);
     </script>
 </body>
