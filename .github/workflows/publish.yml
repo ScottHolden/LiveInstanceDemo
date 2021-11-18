@@ -1,4 +1,4 @@
-name: Publish GitHub Page
+name: Build and publish release
 
 on:
   push:
