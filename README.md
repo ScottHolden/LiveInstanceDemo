@@ -1,5 +1,5 @@
 # Live Instance Demo
-A small VMSS scale-out demo for Chaos Experements.  
+A small VMSS scale-out demo for Azure Chaos Studio experiments.  
   
 ![Logical Diagram](media/logical.png)
   
