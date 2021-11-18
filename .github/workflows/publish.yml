@@ -1,0 +1,50 @@
+name: Publish GitHub Page
+
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - '*.md'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.0.100-rc.2.21505.57
+
+    - name: Publish app
+      run: dotnet publish src/LiveInstanceDemo.csproj -c Release -r linux-x64 --self-contained true -p:PublishTrimmed=true -o ./publish/release
+
+    - name: Create archive
+      run: tar -czf ./publish/LiveInstanceDemo.tar.gz -C ./publish/release .
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: LiveInstanceDemo
+        release_name: LiveInstanceDemo
+        body: LiveInstanceDemo
+        draft: true
+        prerelease: false
+        
+    - name: Upload release asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./publish/LiveInstanceDemo.tar.gz
+        asset_name: LiveInstanceDemo.tar.gz
+        asset_content_type: application/gzip
