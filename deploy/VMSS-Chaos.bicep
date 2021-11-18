@@ -1,4 +1,4 @@
-param location string = resourceGroup().location
+param location string = 'CentralUS'
 param prefix string = 'ChaosVMSS'
 param artifactUrl string = 'https://github.com/ScottHolden/LiveInstanceDemo/releases/download/LiveInstanceDemo/LiveInstanceDemo.tar.gz'
 
