@@ -1,0 +1,600 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.4.1008.15138",
+      "templateHash": "12780463575189430236"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "ChaosVMSS"
+    },
+    "artifactUrl": {
+      "type": "string",
+      "defaultValue": "https://github.com/ScottHolden/LiveInstanceDemo/releases/download/LiveInstanceDemo/LiveInstanceDemo.tar.gz"
+    }
+  },
+  "functions": [],
+  "variables": {
+    "uniqueName": "[format('{0}-{1}', parameters('prefix'), uniqueString(resourceGroup().id, parameters('prefix')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-network', deployment().name)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "uniqueName": {
+            "value": "[variables('uniqueName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.1008.15138",
+              "templateHash": "5459642602555466572"
+            }
+          },
+          "parameters": {
+            "uniqueName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "appGwSubnetName": "AppGw",
+            "vmssSubnetName": "VMSS"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-03-01",
+              "name": "[parameters('uniqueName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "172.22.190.0/24"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "[variables('appGwSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "172.22.190.0/25"
+                    }
+                  },
+                  {
+                    "name": "[variables('vmssSubnetName')]",
+                    "properties": {
+                      "addressPrefix": "172.22.190.128/25"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "appGwSubnetId": {
+              "type": "string",
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('uniqueName')), variables('appGwSubnetName'))]"
+            },
+            "vmssSubnetId": {
+              "type": "string",
+              "value": "[format('{0}/subnets/{1}', resourceId('Microsoft.Network/virtualNetworks', parameters('uniqueName')), variables('vmssSubnetName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-appgw', deployment().name)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "uniqueName": {
+            "value": "[variables('uniqueName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-network', deployment().name)), '2020-06-01').outputs.appGwSubnetId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.1008.15138",
+              "templateHash": "2735392724949742999"
+            }
+          },
+          "parameters": {
+            "uniqueName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "subnetId": {
+              "type": "string"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "appGwName": "[parameters('uniqueName')]",
+            "backendPoolName": "backend"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2021-03-01",
+              "name": "[parameters('uniqueName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "publicIPAddressVersion": "IPv4",
+                "dnsSettings": {
+                  "domainNameLabel": "[toLower(parameters('uniqueName'))]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/applicationGateways",
+              "apiVersion": "2021-03-01",
+              "name": "[variables('appGwName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "Standard_v2",
+                  "tier": "Standard_v2",
+                  "capacity": 1
+                },
+                "gatewayIPConfigurations": [
+                  {
+                    "name": "appGwIP",
+                    "properties": {
+                      "subnet": {
+                        "id": "[parameters('subnetId')]"
+                      }
+                    }
+                  }
+                ],
+                "frontendIPConfigurations": [
+                  {
+                    "name": "public",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('uniqueName'))]"
+                      }
+                    }
+                  }
+                ],
+                "frontendPorts": [
+                  {
+                    "name": "http",
+                    "properties": {
+                      "port": 80
+                    }
+                  }
+                ],
+                "backendAddressPools": [
+                  {
+                    "name": "[variables('backendPoolName')]",
+                    "properties": {}
+                  }
+                ],
+                "backendHttpSettingsCollection": [
+                  {
+                    "name": "dotnet",
+                    "properties": {
+                      "port": 5000,
+                      "protocol": "Http",
+                      "cookieBasedAffinity": "Disabled",
+                      "pickHostNameFromBackendAddress": true,
+                      "requestTimeout": 5
+                    }
+                  }
+                ],
+                "httpListeners": [
+                  {
+                    "name": "http",
+                    "properties": {
+                      "frontendIPConfiguration": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', variables('appGwName'), 'public')]"
+                      },
+                      "frontendPort": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', variables('appGwName'), 'http')]"
+                      },
+                      "protocol": "Http"
+                    }
+                  }
+                ],
+                "requestRoutingRules": [
+                  {
+                    "name": "httptobackend",
+                    "properties": {
+                      "ruleType": "Basic",
+                      "httpListener": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', variables('appGwName'), 'http')]"
+                      },
+                      "backendAddressPool": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', variables('appGwName'), variables('backendPoolName'))]"
+                      },
+                      "backendHttpSettings": {
+                        "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', variables('appGwName'), 'dotnet')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('uniqueName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "backendPoolId": {
+              "type": "string",
+              "value": "[format('{0}/backendAddressPools/{1}', resourceId('Microsoft.Network/applicationGateways', variables('appGwName')), variables('backendPoolName'))]"
+            },
+            "fqdn": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('uniqueName'))).dnsSettings.fqdn]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-network', deployment().name))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-vmss', deployment().name)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "uniqueName": {
+            "value": "[variables('uniqueName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "subnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-network', deployment().name)), '2020-06-01').outputs.vmssSubnetId.value]"
+          },
+          "backendPoolId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-appgw', deployment().name)), '2020-06-01').outputs.backendPoolId.value]"
+          },
+          "artifactUrl": {
+            "value": "[parameters('artifactUrl')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.1008.15138",
+              "templateHash": "3645965678609918336"
+            }
+          },
+          "parameters": {
+            "uniqueName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "artifactUrl": {
+              "type": "string"
+            },
+            "subnetId": {
+              "type": "string"
+            },
+            "backendPoolId": {
+              "type": "string"
+            },
+            "vmSku": {
+              "type": "string",
+              "defaultValue": "Standard_B1s"
+            },
+            "vmUsername": {
+              "type": "string",
+              "defaultValue": "chaos"
+            },
+            "vmPassword": {
+              "type": "string",
+              "defaultValue": "[newGuid()]"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "vmssScriptTemplate": "#!/bin/bash\n\n# Download binaries\ncurl -L -o LiveInstanceDemo.tar.gz '{{{ArtifactURL}}}'\nmkdir /bin/liveinstancedemo/\ntar -xf ./LiveInstanceDemo.tar.gz -C /bin/liveinstancedemo\nrm -f LiveInstanceDemo.tar.gz\nchmod +x /bin/liveinstancedemo/LiveInstanceDemo\n\n# Create service\ncat > /etc/systemd/system/liveinstancedemo.service <<EOF\n[Unit]\nDescription=LiveInstanceDemoLinux\nWants=network-online.target\nAfter=syslog.target network.target nss-lookup.target network-online.target\n\n[Service]\nType=simple\nRestart=on-failure\nRestartSec=20\nTimeoutSec=600t\nExecStart=/bin/liveinstancedemo/LiveInstanceDemo --urls=http://0.0.0.0:5000\nExecReload=/bin/kill -s HUP $MAINPID\nKillSignal=SIGINT\nWorkingDirectory=/bin/liveinstancedemo/\nLimitNOFILE=100000\n\n[Install]\nWantedBy=multi-user.target\nEOF\n\n# Start service\nsystemctl daemon-reload\nsystemctl enable liveinstancedemo\nsystemctl start liveinstancedemo",
+            "vmssScript": "[base64(replace(variables('vmssScriptTemplate'), '{{{ArtifactURL}}}', parameters('artifactUrl')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Compute/virtualMachineScaleSets",
+              "apiVersion": "2021-03-01",
+              "name": "[parameters('uniqueName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "[parameters('vmSku')]",
+                "capacity": 4
+              },
+              "properties": {
+                "overprovision": false,
+                "singlePlacementGroup": false,
+                "upgradePolicy": {
+                  "mode": "Manual"
+                },
+                "virtualMachineProfile": {
+                  "storageProfile": {
+                    "osDisk": {
+                      "osType": "Linux",
+                      "createOption": "FromImage",
+                      "caching": "ReadWrite",
+                      "managedDisk": {
+                        "storageAccountType": "Premium_LRS"
+                      },
+                      "diskSizeGB": 30
+                    },
+                    "imageReference": {
+                      "publisher": "canonical",
+                      "offer": "0001-com-ubuntu-server-focal",
+                      "sku": "20_04-lts-gen2",
+                      "version": "latest"
+                    }
+                  },
+                  "osProfile": {
+                    "computerNamePrefix": "chaosvmss",
+                    "adminUsername": "[parameters('vmUsername')]",
+                    "adminPassword": "[parameters('vmPassword')]"
+                  },
+                  "extensionProfile": {
+                    "extensions": [
+                      {
+                        "name": "CustomScript",
+                        "properties": {
+                          "type": "CustomScript",
+                          "publisher": "Microsoft.Azure.Extensions",
+                          "typeHandlerVersion": "2.0",
+                          "autoUpgradeMinorVersion": true,
+                          "settings": {
+                            "script": "[variables('vmssScript')]"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "networkProfile": {
+                    "networkInterfaceConfigurations": [
+                      {
+                        "name": "[format('{0}-nic', parameters('uniqueName'))]",
+                        "properties": {
+                          "primary": true,
+                          "enableAcceleratedNetworking": false,
+                          "ipConfigurations": [
+                            {
+                              "name": "ipconfig1",
+                              "properties": {
+                                "primary": true,
+                                "subnet": {
+                                  "id": "[parameters('subnetId')]"
+                                },
+                                "applicationGatewayBackendAddressPools": [
+                                  {
+                                    "id": "[parameters('backendPoolId')]"
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "vmssName": {
+              "type": "string",
+              "value": "[parameters('uniqueName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-appgw', deployment().name))]",
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-network', deployment().name))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-chaos', deployment().name)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "uniqueName": {
+            "value": "[variables('uniqueName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vmssName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('{0}-vmss', deployment().name)), '2020-06-01').outputs.vmssName.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.1008.15138",
+              "templateHash": "1824820542383353065"
+            }
+          },
+          "parameters": {
+            "uniqueName": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "vmssName": {
+              "type": "string"
+            }
+          },
+          "functions": [],
+          "variables": {
+            "selectorId": "[guid(parameters('uniqueName'))]",
+            "vmContributorRole": "[format('{0}/providers/Microsoft.Authorization/roleDefinitions/9980e02c-c2be-4d73-94e8-173b1dc7cf3c', subscription().id)]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Chaos/targets",
+              "apiVersion": "2021-09-15-preview",
+              "scope": "[format('Microsoft.Compute/virtualMachineScaleSets/{0}', parameters('vmssName'))]",
+              "name": "microsoft-virtualmachinescaleset",
+              "properties": {}
+            },
+            {
+              "type": "Microsoft.Chaos/targets/capabilities",
+              "apiVersion": "2021-09-15-preview",
+              "scope": "[format('Microsoft.Compute/virtualMachineScaleSets/{0}', parameters('vmssName'))]",
+              "name": "[format('{0}/{1}', 'microsoft-virtualmachinescaleset', 'Shutdown-1.0')]",
+              "properties": {},
+              "dependsOn": [
+                "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmssName')), 'Microsoft.Chaos/targets', 'microsoft-virtualmachinescaleset')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Chaos/experiments",
+              "apiVersion": "2021-09-15-preview",
+              "name": "[format('{0}-Shutdown', parameters('uniqueName'))]",
+              "location": "[parameters('location')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "selectors": [
+                  {
+                    "type": "List",
+                    "id": "[variables('selectorId')]",
+                    "targets": [
+                      {
+                        "id": "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmssName')), 'Microsoft.Chaos/targets', 'microsoft-virtualmachinescaleset')]",
+                        "type": "ChaosTarget"
+                      }
+                    ]
+                  }
+                ],
+                "steps": [
+                  {
+                    "name": "Shutdown Step",
+                    "branches": [
+                      {
+                        "name": "Branch 1",
+                        "actions": [
+                          {
+                            "name": "urn:csci:microsoft:virtualMachineScaleSet:shutdown/1.0",
+                            "type": "continuous",
+                            "selectorId": "[variables('selectorId')]",
+                            "duration": "PT1M",
+                            "parameters": [
+                              {
+                                "key": "abruptShutdown",
+                                "value": "true"
+                              },
+                              {
+                                "key": "instances",
+                                "value": "[[1,3]"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[extensionResourceId(resourceId('Microsoft.Compute/virtualMachineScaleSets', parameters('vmssName')), 'Microsoft.Chaos/targets', 'microsoft-virtualmachinescaleset')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "scope": "[format('Microsoft.Compute/virtualMachineScaleSets/{0}', parameters('vmssName'))]",
+              "name": "[guid(parameters('vmssName'), parameters('uniqueName'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName'))), '2021-09-15-preview', 'full').identity.principalId]",
+                "roleDefinitionId": "[variables('vmContributorRole')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Chaos/experiments', format('{0}-Shutdown', parameters('uniqueName')))]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('{0}-vmss', deployment().name))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "url": {
+      "type": "string",
+      "value": "[format('http://{0}/', reference(resourceId('Microsoft.Resources/deployments', format('{0}-appgw', deployment().name)), '2020-06-01').outputs.fqdn.value)]"
+    }
+  }
+}
